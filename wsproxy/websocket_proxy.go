@@ -153,7 +153,9 @@ func (p *Proxy) proxy(w http.ResponseWriter, r *http.Request) {
 		p.logger.Warnln("error upgrading websocket:", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
@@ -189,8 +191,8 @@ func (p *Proxy) proxy(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		<-ctx.Done()
 		p.logger.Debugln("closing pipes")
-		requestBodyW.CloseWithError(io.EOF)
-		responseBodyW.CloseWithError(io.EOF)
+		_ = requestBodyW.CloseWithError(io.EOF)
+		_ = responseBodyW.CloseWithError(io.EOF)
 		response.closed <- true
 	}()
 
@@ -224,7 +226,7 @@ func (p *Proxy) proxy(w http.ResponseWriter, r *http.Request) {
 			p.logger.Debugln("[read] read payload:", string(payload))
 			p.logger.Debugln("[read] writing to requestBody:")
 			n, err := requestBodyW.Write(payload)
-			requestBodyW.Write([]byte("\n"))
+			_, _ = requestBodyW.Write([]byte("\n"))
 			p.logger.Debugln("[read] wrote to requestBody", n)
 			if err != nil {
 				p.logger.Warnln("[read] error writing message to upstream http server:", err)
