@@ -2,15 +2,14 @@ package wsproxy
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // MethodOverrideParam defines the special URL parameter that is translated into the subsequent proxied streaming http request's method.
