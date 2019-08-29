@@ -2,6 +2,7 @@ package wsproxy
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -139,6 +140,10 @@ func isClosedConnError(err error) bool {
 	return websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway)
 }
 
+type gwResult struct {
+	Result json.RawMessage `json:"result"`
+}
+
 func (p *Proxy) proxy(w http.ResponseWriter, r *http.Request) {
 	var responseHeader http.Header
 	// If Sec-WebSocket-Protocol starts with "Bearer", respond in kind.
@@ -236,13 +241,20 @@ func (p *Proxy) proxy(w http.ResponseWriter, r *http.Request) {
 	}()
 	// write loop -- take messages from response and write to websocket
 	scanner := bufio.NewScanner(responseBodyR)
+	result := new(gwResult)
 	for scanner.Scan() {
 		if len(scanner.Bytes()) == 0 {
 			p.logger.Warnln("[write] empty scan", scanner.Err())
 			continue
 		}
 		p.logger.Debugln("[write] scanned", scanner.Text())
-		if err = conn.WriteMessage(websocket.TextMessage, scanner.Bytes()); err != nil {
+
+		if err := json.Unmarshal(scanner.Bytes(), result); err != nil {
+			p.logger.Warnln("[write] extractor gateway message result error:", err)
+			return
+		}
+
+		if err = conn.WriteMessage(websocket.TextMessage, result.Result); err != nil {
 			p.logger.Warnln("[write] error writing websocket message:", err)
 			return
 		}
